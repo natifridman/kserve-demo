@@ -278,11 +278,11 @@ Each model deployment includes:
 Once deployed, test your model:
 
 ```bash
-# Get the service endpoint
-kubectl get svc -n your-namespace
+# Get the service URL from the LLMInferenceService
+kubectl get llminferenceservice -n your-namespace
 
-# Test with curl (adjust endpoint and model name)
-curl -X POST http://<endpoint>/v1/chat/completions \
+# Test with curl using the URL from above
+curl -X POST http://<url-from-above>/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "Qwen/Qwen2.5-0.5B-Instruct",
