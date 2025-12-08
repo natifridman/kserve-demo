@@ -2,6 +2,107 @@
 
 This repository provides reusable Kustomize manifests for deploying LLM inference services using [KServe](https://kserve.github.io/), [vLLM](https://docs.vllm.ai/), and [llm-d](https://llm-d.ai/).
 
+## Architecture Overview
+
+The stack combines four key components to provide cloud-native LLM inference:
+
+```mermaid
+flowchart TB
+    subgraph Client["Client Layer"]
+        APP[Application]
+    end
+
+    subgraph Gateway["Gateway Layer (Envoy Gateway)"]
+        GW[Gateway API]
+        GWC[GatewayClass]
+    end
+
+    subgraph Control["Control Plane (KServe)"]
+        ISVC[LLMInferenceService]
+        CFG[LLMInferenceServiceConfig]
+        SA[ServiceAccount]
+    end
+
+    subgraph Scheduling["Scheduling Layer (llm-d)"]
+        EPP[Endpoint Picker / Scheduler]
+        POOL[InferencePool]
+    end
+
+    subgraph Execution["Execution Layer (vLLM)"]
+        VLLM1[vLLM Pod 1]
+        VLLM2[vLLM Pod 2]
+        VLLM3[vLLM Pod N]
+    end
+
+    subgraph Storage["Storage Layer"]
+        PVC[PersistentVolumeClaim]
+        HF[HuggingFace Models]
+    end
+
+    APP -->|"OpenAI API\n/v1/chat/completions"| GW
+    GW --> GWC
+    GWC -->|Route| EPP
+
+    ISVC --> CFG
+    CFG -->|Creates| POOL
+    CFG -->|Configures| EPP
+
+    EPP -->|"Cache-aware\nLoad-balanced"| VLLM1
+    EPP -->|Routing| VLLM2
+    EPP -->|Decisions| VLLM3
+
+    VLLM1 --> PVC
+    VLLM2 --> PVC
+    VLLM3 --> PVC
+
+    HF -->|Download Job| PVC
+    SA -->|Auth| HF
+
+    style Client fill:#e1f5fe
+    style Gateway fill:#fff3e0
+    style Control fill:#f3e5f5
+    style Scheduling fill:#e8f5e9
+    style Execution fill:#fce4ec
+    style Storage fill:#f5f5f5
+```
+
+### Component Responsibilities
+
+| Layer | Component | Role |
+|-------|-----------|------|
+| **Gateway** | Envoy Gateway | Ingress, routing, rate limiting, authentication |
+| **Control Plane** | KServe | Model lifecycle, scaling, Kubernetes-native CRDs |
+| **Scheduling** | llm-d EPP | Cache-aware routing, load balancing, request scheduling |
+| **Execution** | vLLM | High-performance inference with PagedAttention |
+| **Storage** | PVC + HuggingFace | Model weight storage and distribution |
+
+### Request Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant G as Gateway
+    participant E as EPP Scheduler
+    participant V as vLLM Worker
+    participant M as Model Cache
+
+    C->>G: POST /v1/chat/completions
+    G->>E: Route request
+
+    Note over E: Evaluate endpoints:<br/>- Prefix cache hits<br/>- Current load<br/>- GPU utilization
+
+    E->>V: Forward to optimal worker
+    V->>M: Load KV cache
+
+    loop Token Generation
+        V->>V: Generate token
+        V-->>C: Stream token (SSE)
+    end
+
+    V->>E: Update metrics
+    V-->>C: Complete response
+```
+
 ## Prerequisites
 
 - Kubernetes cluster with GPU support
