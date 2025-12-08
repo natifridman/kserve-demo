@@ -1,0 +1,6 @@
+---
+# Namespace is created via patch - see kustomization.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: placeholder

@@ -2,9 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 # Set your target namespace here
-namespace: kserve-demo
+namespace: nati-kserve-demo
 
 resources:
+  - namespace.yaml
   - gateway/
   - llm-config/
   - models/example-model/
@@ -17,6 +18,15 @@ labels:
 
 # Patches for environment-specific configuration
 patches:
+  # Patch the namespace name (must match the namespace field above)
+  - target:
+      kind: Namespace
+      name: placeholder
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: nati-kserve-demo
+
   # Patch the HuggingFace secret with your token
   # Option 1: Replace the placeholder directly
   - target:
