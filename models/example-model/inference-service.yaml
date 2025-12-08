@@ -1,0 +1,49 @@
+---
+# LLMInferenceService for serving the model with vLLM via llm-d
+# Adjust resources based on your model and hardware requirements
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: example-model
+spec:
+  model:
+    uri: "pvc://example-model-pvc"
+    # Model name as it appears on HuggingFace
+    name: Qwen/Qwen2.5-0.5B-Instruct
+  replicas: 1
+  router:
+    scheduler: {}
+    route: {}
+    gateway: {}
+  baseRefs:
+    # Reference to the LLMInferenceServiceConfig template
+    - name: llm-template
+  template:
+    containers:
+      - name: main
+        env:
+          - name: VLLM_LOGGING_LEVEL
+            value: INFO
+          # Additional vLLM arguments - adjust based on your needs
+          # Common options:
+          #   --gpu-memory-utilization 0.95
+          #   --max-model-len 4096
+          #   --tensor-parallel-size 2
+          #   --enforce-eager
+          - name: VLLM_ADDITIONAL_ARGS
+            value: >
+              --gpu-memory-utilization 0.95
+              --disable-uvicorn-access-log
+        resources:
+          # Adjust based on your model size and available hardware
+          # Small models (0.5B-7B): 1 GPU, 16-32Gi RAM
+          # Medium models (13B-34B): 2 GPUs, 64Gi RAM
+          # Large models (70B+): 4+ GPUs, 128Gi+ RAM
+          limits:
+            cpu: "8"
+            memory: 32Gi
+            nvidia.com/gpu: 1
+          requests:
+            cpu: "4"
+            memory: 16Gi
+            nvidia.com/gpu: 1

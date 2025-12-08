@@ -1,0 +1,50 @@
+---
+# Job to download model weights from HuggingFace
+# This job uses the kserve-storage-initializer to download model files
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: example-model-init-job
+spec:
+  parallelism: 1
+  completions: 1
+  template:
+    spec:
+      serviceAccountName: hf-service-account
+      restartPolicy: Never
+      volumes:
+        - name: pvc
+          persistentVolumeClaim:
+            claimName: example-model-pvc
+            readOnly: false
+      containers:
+        - image: quay.io/opendatahub/kserve-storage-initializer:v0.15-latest
+          name: storage-initializer
+          args:
+            # Replace with your HuggingFace model path
+            # Examples:
+            #   - hf://meta-llama/Llama-2-7b-hf
+            #   - hf://mistralai/Mistral-7B-v0.1
+            #   - hf://Qwen/Qwen2.5-0.5B-Instruct
+            - hf://Qwen/Qwen2.5-0.5B-Instruct
+            - /mnt/models
+          env:
+            - name: HF_HOME
+              value: /tmp/hf
+            - name: HF_XET_NUM_CONCURRENT_RANGE_GETS
+              value: "8"
+            - name: HF_XET_HIGH_PERFORMANCE
+              value: "True"
+            - name: HF_HUB_DISABLE_TELEMETRY
+              value: "1"
+          resources:
+            requests:
+              cpu: "2"
+              memory: "16Gi"
+            limits:
+              cpu: "8"
+              memory: "32Gi"
+          volumeMounts:
+            - name: pvc
+              mountPath: "/mnt/models"
+              readOnly: false

@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Set your target namespace here
+namespace: kserve-demo
+
+resources:
+  - gateway/
+  - llm-config/
+  - models/example-model/
+
+# Common labels applied to all resources
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: kserve-demo
+    includeSelectors: false
+
+# Patches for environment-specific configuration
+patches:
+  # Patch the HuggingFace secret with your token
+  # Option 1: Replace the placeholder directly
+  - target:
+      kind: Secret
+      name: hf-token
+    patch: |-
+      - op: replace
+        path: /data/HF_TOKEN
+        # Replace with your base64-encoded HuggingFace token
+        # Generate with: echo -n "hf_your_token_here" | base64
+        value: REPLACE_WITH_BASE64_ENCODED_HF_TOKEN
+
+  # Patch storage class if needed (uncomment and adjust)
+  # - target:
+  #     kind: PersistentVolumeClaim
+  #     name: example-model-pvc
+  #   patch: |-
+  #     - op: replace
+  #       path: /spec/storageClassName
+  #       value: your-storage-class
+
+# Alternative: Generate the secret from a literal value
+# Comment out the hf-secret.yaml in llm-config/kustomization.yaml if using this
+#
+# secretGenerator:
+#   - name: hf-token
+#     literals:
+#       - HF_TOKEN=hf_your_token_here
+#     options:
+#       disableNameSuffixHash: true
+
+# Image customization (uncomment to override versions)
+# images:
+#   - name: ghcr.io/llm-d/llm-d-dev
+#     newTag: v0.2.3
+#   - name: ghcr.io/llm-d/llm-d-inference-scheduler
+#     newTag: v0.2.2

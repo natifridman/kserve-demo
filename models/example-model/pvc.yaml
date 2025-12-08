@@ -1,0 +1,15 @@
+---
+# PersistentVolumeClaim for storing model weights
+# Adjust storage size based on your model requirements
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: example-model-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: local-path  # Adjust for your cluster
+  volumeMode: Filesystem

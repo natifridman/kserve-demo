@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - endpoint-picker-config.yaml
+  - llmisvc-config.yaml
+  - service-account.yaml
+  - hf-secret.yaml
+
+# Alternative: Use secretGenerator to create the HuggingFace secret from a file
+# Uncomment and adjust the path to use this approach instead of hf-secret.yaml
+#
+# secretGenerator:
+#   - name: hf-token
+#     literals:
+#       - HF_TOKEN=hf_your_token_here
+#     options:
+#       disableNameSuffixHash: true

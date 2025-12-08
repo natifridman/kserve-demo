@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - pvc.yaml
+  - model-download-job.yaml
+  - inference-service.yaml
+
+# Customize model name and storage - uncomment and adjust as needed
+# patches:
+#   - target:
+#       kind: PersistentVolumeClaim
+#       name: example-model-pvc
+#     patch: |-
+#       - op: replace
+#         path: /spec/resources/requests/storage
+#         value: 100Gi
