@@ -7,63 +7,72 @@ This repository provides reusable Kustomize manifests for deploying LLM inferenc
 The stack combines four key components to provide cloud-native LLM inference:
 
 ```mermaid
-flowchart TB
-    subgraph Client["Client Layer"]
-        APP[Application]
+flowchart TD
+    accTitle: Cloud-Native LLM Inference Architecture
+    accDescr: Layered architecture showing Envoy Gateway, llm-d EPP for routing, vLLM for inference, and KServe for orchestration.
+
+    %% Style Definitions - Light backgrounds for readability
+    classDef client fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef gateway fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#bf360c
+    classDef scheduler fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef execution fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
+    classDef control fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
+    classDef storage fill:#eceff1,stroke:#546e7a,stroke-width:2px,color:#37474f
+
+    %% Client
+    APP([Application]):::client
+
+    %% Gateway Layer
+    subgraph Gateway["Envoy Gateway"]
+        GW[Gateway + HTTPRoute]:::gateway
+        GWC{{GatewayClass}}:::gateway
     end
 
-    subgraph Gateway["Gateway Layer (Envoy Gateway)"]
-        GW[Gateway API]
-        GWC[GatewayClass]
+    %% Scheduler Layer
+    subgraph Scheduler["llm-d"]
+        EPP[Endpoint Picker]:::scheduler
+        POOL[(InferencePool)]:::scheduler
     end
 
-    subgraph Control["Control Plane (KServe)"]
-        ISVC[LLMInferenceService]
-        CFG[LLMInferenceServiceConfig]
-        SA[ServiceAccount]
+    %% Execution Layer
+    subgraph Execution["vLLM Workers"]
+        V1[Worker 1]:::execution
+        V2[Worker 2]:::execution
+        VN[Worker N]:::execution
     end
 
-    subgraph Scheduling["Scheduling Layer (llm-d)"]
-        EPP[Endpoint Picker / Scheduler]
-        POOL[InferencePool]
+    %% Control Plane
+    subgraph Control["KServe Control Plane"]
+        ISVC[/LLMInferenceService/]:::control
+        CFG[/ServiceConfig/]:::control
+        SA[/ServiceAccount/]:::control
     end
 
-    subgraph Execution["Execution Layer (vLLM)"]
-        VLLM1[vLLM Pod 1]
-        VLLM2[vLLM Pod 2]
-        VLLM3[vLLM Pod N]
+    %% Storage
+    subgraph Storage["Storage"]
+        PVC[(PVC)]:::storage
+        HF[(HuggingFace)]:::storage
     end
 
-    subgraph Storage["Storage Layer"]
-        PVC[PersistentVolumeClaim]
-        HF[HuggingFace Models]
-    end
+    %% Request Flow
+    APP -->|POST /v1/chat/completions| GW
+    GW --- GWC
+    GW <-->|ext_proc| EPP
+    EPP --- POOL
 
-    APP -->|"OpenAI API\n/v1/chat/completions"| GW
-    GW --> GWC
-    GWC -->|Route| EPP
+    GW -->|Routed Request| V1
+    GW -.-> V2
+    GW -.-> VN
 
+    %% Control Plane Flow
     ISVC --> CFG
-    CFG -->|Creates| POOL
-    CFG -->|Configures| EPP
+    CFG -.->|Creates| POOL
+    CFG -.->|Deploys| Execution
 
-    EPP -->|"Cache-aware\nLoad-balanced"| VLLM1
-    EPP -->|Routing| VLLM2
-    EPP -->|Decisions| VLLM3
-
-    VLLM1 --> PVC
-    VLLM2 --> PVC
-    VLLM3 --> PVC
-
-    HF -->|Download Job| PVC
-    SA -->|Auth| HF
-
-    style Client fill:#e1f5fe
-    style Gateway fill:#fff3e0
-    style Control fill:#f3e5f5
-    style Scheduling fill:#e8f5e9
-    style Execution fill:#fce4ec
-    style Storage fill:#f5f5f5
+    %% Storage Flow
+    V1 & V2 & VN --- PVC
+    HF -->|Init Job| PVC
+    SA -.->|Token| HF
 ```
 
 ### Component Responsibilities
@@ -80,27 +89,44 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant G as Gateway
-    participant E as EPP Scheduler
-    participant V as vLLM Worker
-    participant M as Model Cache
+    accTitle: LLM Inference Request Lifecycle
+    accDescr: Request flow showing ext_proc routing and vLLM inference phases.
 
-    C->>G: POST /v1/chat/completions
-    G->>E: Route request
+    participant Client
+    participant GW as Envoy Gateway
+    participant EPP as llm-d EPP
+    participant vLLM
+    participant Cache as KV Cache
 
-    Note over E: Evaluate endpoints:<br/>- Prefix cache hits<br/>- Current load<br/>- GPU utilization
+    Client->>+GW: POST /v1/chat/completions
 
-    E->>V: Forward to optimal worker
-    V->>M: Load KV cache
+    Note over GW,EPP: Routing Decision (ext_proc)
+    GW->>+EPP: ProcessingRequest
+    Note right of EPP: Evaluate:<br/>- Cache hits<br/>- Queue depth<br/>- GPU load
+    EPP-->>-GW: x-gateway-destination-endpoint
 
-    loop Token Generation
-        V->>V: Generate token
-        V-->>C: Stream token (SSE)
+    GW->>+vLLM: Forward to worker
+
+    Note over vLLM,Cache: Prefill Phase (compute-bound)
+    vLLM->>Cache: Check prefix cache
+    alt Cache Hit
+        Cache-->>vLLM: Return KV tensors
+    else Cache Miss
+        vLLM->>vLLM: Compute attention
+        vLLM->>Cache: Store KV cache
     end
 
-    V->>E: Update metrics
-    V-->>C: Complete response
+    Note over vLLM,Cache: Decode Phase (memory-bound)
+    loop Token Generation
+        vLLM->>Cache: Read cache
+        vLLM->>vLLM: Generate token
+        vLLM-->>Client: Stream (SSE)
+    end
+
+    vLLM->>EPP: Update metrics
+    vLLM-->>-GW: Complete
+
+    GW-->>-Client: [DONE]
 ```
 
 ## Prerequisites
