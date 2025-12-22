@@ -1,0 +1,16 @@
+---
+# PersistentVolumeClaim for gpt-oss-20b model storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gpt-oss-20b-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      # Adjust size based on model requirements
+      # gpt-oss-20b is approximately 40GB
+      storage: 100Gi
+  # Uncomment and set your storage class if needed
+  # storageClassName: your-storage-class

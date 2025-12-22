@@ -7,8 +7,14 @@ namespace: nati-kserve-demo
 resources:
   - namespace.yaml
   - gateway/
+
+  # Choose ONE of the following API versions:
+  # Option 1: v1alpha1 (current/stable)
   - llm-config/
   - models/example-model/
+  # Option 2: v1alpha2 (newer API) - uncomment below and comment above
+  # - llm-config-v1alpha2/
+  # - models/gpt-oss-20b/
 
 # Common labels applied to all resources
 labels:
@@ -60,7 +66,13 @@ patches:
 
 # Image customization (uncomment to override versions)
 # images:
+#   # v1alpha1 uses v0.2.x images
 #   - name: ghcr.io/llm-d/llm-d-dev
 #     newTag: v0.2.3
 #   - name: ghcr.io/llm-d/llm-d-inference-scheduler
 #     newTag: v0.2.2
+#   # v1alpha2 uses v0.4.0 images
+#   - name: ghcr.io/llm-d/llm-d-cuda
+#     newTag: v0.4.0
+#   - name: ghcr.io/llm-d/llm-d-inference-scheduler
+#     newTag: v0.4.0

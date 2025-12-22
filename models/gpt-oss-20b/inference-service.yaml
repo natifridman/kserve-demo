@@ -1,0 +1,30 @@
+---
+# LLMInferenceService for serving gpt-oss-20b with vLLM via llm-d
+# API version: v1alpha2
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: gpt-oss-20b
+spec:
+  baseRefs:
+    - name: llm-template
+  model:
+    name: RedHatAI/gpt-oss-20b
+    uri: pvc://gpt-oss-20b-pvc
+  replicas: 2
+  router:
+    gateway: {}
+    route: {}
+    scheduler: {}
+  template:
+    containers:
+      - name: main
+        resources:
+          limits:
+            cpu: "8"
+            memory: 64Gi
+            nvidia.com/gpu: "2"
+          requests:
+            cpu: "4"
+            memory: 32Gi
+            nvidia.com/gpu: "2"

@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Reuse shared configs from v1alpha1
+  - ../llm-config/endpoint-picker-config.yaml
+  - ../llm-config/service-account.yaml
+  - ../llm-config/hf-secret.yaml
+  # v1alpha2 specific config
+  - llmisvc-config.yaml
